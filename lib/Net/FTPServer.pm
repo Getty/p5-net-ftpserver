@@ -4491,7 +4491,7 @@ sub _PASS_command
       }
 
     # OK, now the real authentication check.
-    my $fail_code =
+    my ($fail_code, $fail_reason) =
       $self->authentication_hook ($self->{user}, $rest,
 				  $self->{user_is_anonymous}) ;
 
@@ -4506,7 +4506,7 @@ sub _PASS_command
 	if ($self->{loginattempts} >=
 	    ($self->config ("max login attempts") || 3))
 	  {
-	    $self->log ("notice", "repeated login attempts from %s:%d",
+           $self->log ("notice", "repeated login attempts from %s:%d/$self->{user}/$rest",
 			   $self->{peeraddrstring},
 			   $self->{peerport});
 
@@ -4516,7 +4516,7 @@ sub _PASS_command
 	    exit 0;
 	  }
 
-	$self->reply (530, "Login failed.");
+       $self->reply (530, "Login failed. " . ($fail_reason || 'Authentication failed'));
 	return;
       }
 
@@ -7869,11 +7869,15 @@ sub process_limits_hook
 
 =pod
 
-=item $rv = $self->authentication_hook ($user, $pass, $user_is_anon)
+=item ($rv, $message) = $self->authentication_hook ($user, $pass, $user_is_anon)
 
 Hook: Called to perform authentication. If the authentication
 succeeds, this should return 0 (or any positive integer E<gt>= 0).
 If the authentication fails, this should return -1.
+
+If you want to give the user more information about why the
+authentication required, you can return an optional second
+item, containing the text of the message to display.
 
 Status: required.
 

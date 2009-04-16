@@ -327,6 +327,21 @@ sub open
     return new IO::File $self->{_pathname} . $filename, $mode;
   }
 
+=item $rv = $dirh->utime($mtime)
+
+Set the mtime of the current file to $mtime (unix timestamp).
+If successful, then return 0, else is the was an error return -1.
+
+=cut
+
+sub utime
+  {
+    my $self = shift;
+    my $mtime = shift;
+    utime($mtime, $mtime, $self->{_pathname}) || return -1;
+    return 0;
+  }
+
 1 # So that the require or use succeeds.
 
 __END__

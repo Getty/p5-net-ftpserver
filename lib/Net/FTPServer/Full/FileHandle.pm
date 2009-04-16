@@ -184,6 +184,22 @@ sub readlink
     return readlink $self->{_pathname};
   }
 
+=item $rv = $fileh->utime($mtime)
+
+Set the mtime of the current file to $mtime (unix timestamp).
+If successful, then return 0, else is the was an error return -1.
+
+=cut
+
+sub utime
+  {
+    my $self = shift;
+    my $mtime = shift;
+    utime($mtime, $mtime, $self->{_pathname}) || return -1;
+    return 0;
+  }
+
+
 1 # So that the require or use succeeds.
 
 __END__

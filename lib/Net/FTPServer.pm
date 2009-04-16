@@ -2146,7 +2146,7 @@ use IO::Seekable;
 use IPC::Open2;
 use Carp;
 use Carp::Heavy ;
-use POSIX qw(setsid dup dup2 ceil strftime WNOHANG);
+use POSIX qw(setsid dup dup2 ceil tzset strftime mktime WNOHANG);
 use Fcntl qw(F_SETOWN F_SETFD FD_CLOEXEC);
 use Errno qw(EADDRINUSE) ;
 
@@ -2196,6 +2196,8 @@ use vars qw(@_default_commands
      "FEAT", "OPTS",
      # From ftpexts Internet Draft.
      "SIZE", "MDTM", "MLST", "MLSD",
+     # http://tools.ietf.org/html/draft-somers-ftp-mfxx-04
+     "MFMT",
      # Mail handling commands from obsolete RFC 765.
      "MLFL", "MAIL", "MSND", "MSOM", "MSAM", "MRSQ",
      "MRCP",
@@ -2216,6 +2218,8 @@ use vars qw(@_default_commands
      # Wu-FTPD compatible extensions.
      "ALIAS", "CDPATH", "CHECKMETHOD", "CHECKSUM",
      "IDLE",
+     # modified time
+     "UTIME",
      # Net::FTPServer compatible extensions.
      "SYNC", "ARCHIVE",
     );
@@ -2289,6 +2293,8 @@ sub run
 			 SIZE => undef,
 			 REST => "STREAM",
 			 MDTM => undef,
+			 MFMT => undef,
+			 UTIME => undef,
 			 TVFS => undef,
 			 UTF8 => undef,
 			 MLST => join ("",
@@ -6912,11 +6918,51 @@ sub _CLNT_command
     $self->reply (200, "Hello $rest.");
   }
 
+sub _parse_time
+  {
+    my $time = shift;
+    return -1 unless $time =~ m/^(\d\d\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)?$/;
+    my ($year, $mon, $day, $hour, $min, $sec) = ($1, $2, $3, $4, $5, $6);
+    $sec ||= 0; # handle 12 digit times
+    local $ENV{TZ} = 'UTC';
+    tzset();
+    my $unixtime = mktime($sec, $min, $hour, $day, $mon - 1, $year - 1900);
+    return -1 unless defined $unixtime;
+    return $unixtime;
+  }
+
 sub _MDTM_command
+  {
+    # don't require the update time, but allow it
+    _time_cmd(@_)
+  }
+
+sub _SITE_UTIME_command
+  {
+    # do require the update
+    _time_cmd(@_, 1)
+  }
+
+sub _MFMT_command
+  {
+    # also require different response format
+    _time_cmd(@_, 1, 1);
+  }
+
+sub _time_cmd
   {
     my $self = shift;
     my $cmd = shift;
     my $rest = shift;
+    my $require_time = shift;
+    my $extended_response = shift;
+
+    # support modified time protocol hack in MDTM, or specified protocol part in UTIME/MFMT
+    my $mtime = -1;
+    if ($rest =~ s/^(\d{12,14})(?:\.\d+)?\s+//)
+      {
+        $mtime = _parse_time($1);
+      }
 
     my ($dirh, $fileh, $filename) = $self->_get ($rest);
 
@@ -6934,7 +6980,14 @@ sub _MDTM_command
     # sections 2.3 and 3.1.
     my $fmt_time = strftime "%Y%m%d%H%M%S", gmtime ($time);
 
-    $self->reply (213, $fmt_time);
+    if ($extended_response)
+      {
+        $self->reply (213, "Modify=$fmt_time; $rest");
+      }
+    else
+      {
+        $self->reply (213, $fmt_time);
+      }
   }
 
 sub _MLST_command
@@ -6967,6 +7020,20 @@ sub _MLST_command
       {
 	$self->reply (550, "LIST command denied by server configuration.");
 	return;
+      }
+
+    if ($mtime != -1)
+      {
+        if ($fileh->utime($mtime) == -1)
+          {
+            $self->reply(451, "Could not set modified time");
+            return;
+          }
+      }
+    elsif ($require_time)
+      {
+        $self->reply(501, "Need a valid modification time");
+        return;
       }
 
     # Get the status.

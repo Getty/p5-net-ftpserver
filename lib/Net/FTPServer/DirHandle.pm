@@ -218,6 +218,21 @@ sub open
     confess "virtual function";
   }
 
+=item $rv = $dirh->utime($mtime)
+
+Set the mtime of the directory to the unix timestamp mtime.
+
+Returns 0 on success or -1 on error.
+
+=cut
+
+sub utime
+  {
+    return -1; # not supported
+  }
+
+=cut
+
 1 # So that the require or use succeeds.
 
 __END__

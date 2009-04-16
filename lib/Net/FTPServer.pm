@@ -5526,15 +5526,20 @@ sub _RETR_command
 
     # Check it's a simple file (unless we're using a generator to archive
     # a directory, in which case it's OK).
+    my $file_size = 0;
     unless ($generator)
       {
-	my ($mode) = $fileh->status;
+	my ($mode, undef, undef, undef, undef, $size) = $fileh->status;
 	unless ($mode eq "f")
 	  {
 	    $self->reply (550,
 			  "RETR command is only supported on plain files.");
 	    return;
 	  }
+        # Check if offseting from start of file
+        $file_size = $size;
+        $file_size -= $self->{_restart} if $self->{_restart};
+        $file_size = 0 if $file_size < 0;
       }
 
     # Try to open the file.
@@ -5544,6 +5549,16 @@ sub _RETR_command
       {
 	$self->reply (550, "File or directory not found.");
 	return;
+      }
+
+    # Check to make sure we won't send the user over their rate tracking quota.
+    my ($check_result, $check_reason) = $self->rate_check_hook($filename, $file_size, 'd');
+
+    unless ($check_result)
+      {
+        $check_reason = "Bandwidth quota exceeded" unless defined $check_reason;
+        $self->reply (452, $check_reason);
+        return;
       }
 
     $self->reply (150,
@@ -5582,6 +5597,7 @@ sub _RETR_command
     $self->xfer_start ($fileh->pathname, "o") if $self->{_xferlog};
 
     my $transfer_hook;
+    my $transfer_size = 0;
 
     # What mode are we sending this file in?
     unless ($self->{type} eq 'A') # Binary type.
@@ -5605,6 +5621,7 @@ sub _RETR_command
 	while ($r = $file->sysread ($buffer, 65536))
 	  {
 	    $self->xfer ($r) if $self->{_xferlog};
+            $transfer_size += $r;
 
 	    # Restart alarm clock timer.
 	    alarm $self->{_idle_timeout};
@@ -5687,6 +5704,7 @@ sub _RETR_command
 	while (defined ($_ = $file->getline))
 	  {
 	    $self->xfer (length $_) if $self->{_xferlog};
+            $transfer_size += length $_;
 
 	    # Remove any native line endings.
 	    s/[\n\r]+$//;
@@ -5732,6 +5750,14 @@ sub _RETR_command
     $self->_cleanup_filters (@filter_objects);
 
     $self->xfer_complete if $self->{_xferlog};
+
+    my ($update_result, $update_reason) = $self->rate_update_hook($filename, $transfer_size, 'd');
+    unless ($update_result)
+      {
+        $update_reason = "No reason given" unless defined $update_reason;
+        warn "Rate update failed for download of $filename ($transfer_size): $update_reason";
+      }
+
     $self->reply (226, "File retrieval complete. Data connection has been closed.");
   }
 
@@ -7797,6 +7823,16 @@ sub _store
 	return;
       }
 
+    # Check to make sure the user isn't over their rate tracking quota.
+    my ($check_result, $check_reason) = $self->rate_check_hook($filename, 0, 'u');
+
+    unless ($check_result)
+      {
+        $check_reason = "Bandwidth quota exceeded" unless defined $check_reason;
+        $self->reply (452, $check_reason);
+        return;
+      }
+
     # Try to open the file.
     my $file = $dirh->open ($filename, ($append ? "a" : "w"));
 
@@ -7828,6 +7864,8 @@ sub _store
 	return;
       }
 
+    my $transfer_size = 0;
+
     # Incoming bandwidth
     $self->xfer_start ($dirh->pathname . $filename, "i") if $self->{_xferlog};
 
@@ -7842,6 +7880,7 @@ sub _store
 	while ($r = $sock->sysread ($buffer, 65536))
 	  {
 	    $self->xfer ($r) if $self->{_xferlog};
+            $transfer_size += $r;
 
 	    # Restart alarm clock timer.
 	    alarm $self->{_idle_timeout};
@@ -7899,6 +7938,7 @@ sub _store
 	while (defined ($_ = $sock->getline))
 	  {
 	    $self->xfer (length $_) if $self->{_xferlog};
+            $transfer_size += length $_;
 
 	    # Remove any telnet-format line endings.
 	    s/[\n\r]*$//;
@@ -7935,8 +7975,15 @@ sub _store
     unless ($sock->close && $file->close)
       {
 	my $reason = $self->system_error_hook();
-	$self->reply (550, "File retrieval error: $reason");
+	$self->reply (550, "File store error: $reason");
 	return;
+      }
+
+    my ($update_result, $update_reason) = $self->rate_update_hook($filename, $transfer_size, 'u');
+    unless ($update_result)
+      {
+        $update_reason = "No reason given" unless defined $update_reason;
+        warn "Rate update failed for upload of $filename ($transfer_size): $update_reason";
       }
 
     $self->xfer_complete if $self->{_xferlog};
@@ -8230,6 +8277,44 @@ sub post_command_hook
   }
 
 =pod
+
+=item ($result, $reason) = $self->rate_check_hook($filename, $bytes, $direction)
+
+Hook: Check a file transfer with a ratecheck server.
+
+$filename - name of file being transferred
+$bytes - how many bytes will be transferred
+$direction - 'u' == upload, 'd' == download
+
+$result is true for sucess, false for failure.  A message can be returned
+to the user in $reason.
+
+Status: optional - default is always approve (true)
+
+=cut
+
+sub rate_check_hook
+  {
+    return (1, '');
+  }
+
+=item ($result, $reason) = $self->rate_update_hook($filename, $bytes, $direction)
+
+$filename - name of file being transferred
+$bytes - how many bytes were be transferred
+$direction - 'u' == upload, 'd' == download
+
+$result is true for sucess, false for failure.  A message can be added to
+the log on failure by setting $reason.
+
+Status: optional - default is always success (true).
+
+=cut
+
+sub rate_update_hook
+  {
+    return (1, '');
+  }
 
 =item $self->system_error_hook
 

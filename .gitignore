@@ -5,3 +5,4 @@ Net-FTPServer.spec
 Net-FTPServer-*
 FTPServer.c
 FTPServer.bs
+.build

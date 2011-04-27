@@ -1,25 +1,3 @@
-# -*- perl -*-
-
-# Net::FTPServer A Perl FTP Server
-# Copyright (C) 2000 Bibliotech Ltd., Unit 2-3, 50 Carnwath Road,
-# London, SW6 3EG, United Kingdom.
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-# $Id: FTPServer.pm,v 1.11 2005/07/15 10:10:22 rwmj Exp $
-
 =pod
 
 =head1 NAME
@@ -57,25 +35,17 @@ Current features include:
 
 =head1 INSTALLING AND RUNNING THE SERVER
 
-A standard C<ftpd.conf> file is supplied with the distribution.
+A standard C<ftpd.pl.conf> file is supplied with the distribution.
 Full documentation for all the possible options which you
 may use in this file is contained in this manual page. See
 the section CONFIGURATION below.
 
-After doing C<make install>, the standard C<ftpd.conf> file should
-have been installed in C</etc/ftpd.conf>. You will probably need to
-edit this file to suit your local configuration.
-
-Also after doing C<make install>, several start-up scripts will have
-been installed in C</usr/sbin/*ftpd.pl>. (On Debian in C</usr/bin> or
-C</usr/local/bin>). Each start-up script starts the server in a
-different configuration: either as a full FTP server, or as an
-anonymous-only read-only FTP server, etc.
+B<TODO - REWRITE>
 
 The commonly used scripts are:
 
- * /usr/sbin/ftpd.pl
- * /usr/sbin/ro-ftpd.pl
+ * ftpd.pl
+ * ro-ftpd.pl
 
 The first script is for the full FTP server.
 
@@ -89,7 +59,7 @@ If you have a high load site, you will want to run C<Net::FTPServer>
 as a standalone server. To start C<Net::FTPServer> as a standalone
 server, do:
 
-  /usr/sbin/ftpd.pl -S
+  ftpd.pl -S
 
 You may want to add this to your local start-up files so that
 the server starts automatically when you boot the machine.
@@ -168,8 +138,7 @@ Restart C<xinetd> using:
 C<Net::FTPServer> can be configured and extended in a number
 of different ways.
 
-Firstly, almost all common server configuration can be carried
-out by editing the configuration file C</etc/ftpd.conf>.
+B<TODO - Using and getting ftpd.pl.conf>
 
 Secondly, commands can be loaded into the server at run-time
 to provide custom extensions to the common FTP command set.
@@ -187,7 +156,7 @@ The next sections talk about each of these possibilities in turn.
 
 =head2 CONFIGURATION
 
-A standard C</etc/ftpd.conf> file is supplied with C<Net::FTPServer>
+A standard C<ftpd.pl.conf> file is supplied with C<Net::FTPServer>
 in the distribution. The possible configuration options are listed in
 full below.
 
@@ -1642,7 +1611,7 @@ may choose a different path if you want). The file should contain:
 		  "End of the README file.");
   }
 
-Edit C</etc/ftpd.conf> and add the following command:
+Edit C<ftpd.pl.conf> and add the following command:
 
 site command: readme /usr/local/lib/site_readme.pl
 
@@ -1859,7 +1828,7 @@ Check that no ERRORs are reported by PostgreSQL.
 You should now be able to start the FTP server by running
 the following command (I<not> as root):
 
-  ./dbeg1-ftpd -S -p 2000 -C ftpd.conf
+  ./dbeg1-ftpd -S -p 2000 -C ftpd.pl.conf
 
 If the FTP server doesnE<39>t start correctly, you should
 check the system log file [/var/log/messages].
@@ -1929,7 +1898,7 @@ Normal (IP-based) virtual hosting is carried out as follows:
    IP address back to the site hostname. It is important
    that both forward and reverse DNS is set up correctly,
    else virtual hosting may not work.
- * In /etc/ftpd.conf you will need to add a virtual host
+ * In ftpd.pl.conf you will need to add a virtual host
    section for each site like this:
 
      <Host sitename>
@@ -1946,7 +1915,7 @@ Normal (IP-based) virtual hosting is carried out as follows:
    database or a script, you may find the <Include filename>
    syntax useful.
 
-There are examples in C</etc/ftpd.conf>. Here is how
+There are examples in C<ftpd.pl.conf>. Here is how
 IP-based virtual hosting works:
 
  * The server starts by listening on all interfaces.
@@ -1982,12 +1951,12 @@ This is how to set up IP-less virtual hosting:
 
  * Add entries (A or CNAME records) in DNS mapping the
    name of each site to a single IP address.
- * In /etc/ftpd.conf you will need to list the same single
+ * In ftpd.pl.conf you will need to list the same single
    IP address to which all your sites map:
 
      virtual host multiplex: 1.2.3.4
 
- * In /etc/ftpd.conf you will need to add a virtual host
+ * In ftpd.pl.conf you will need to add a virtual host
    section for each site like this:
 
      <Host sitename>
@@ -2133,11 +2102,10 @@ consult the author for more information.
 package Net::FTPServer;
 
 use strict;
+use warnings;
 
-use vars qw($VERSION $RELEASE);
-
-$VERSION = '1.122';
-$RELEASE = 1;
+our $VERSION ||= '2.000dev';
+our $RELEASE = 0;
 
 # Non-optional modules.
 use Config;
@@ -2156,6 +2124,8 @@ use Carp::Heavy ;
 use POSIX qw(setsid dup dup2 ceil strftime WNOHANG);
 use Fcntl qw(F_SETOWN F_SETFD FD_CLOEXEC);
 use Errno qw(EADDRINUSE) ;
+
+use File::ShareDir::ProjectDistDir;
 
 use Net::FTPServer::FileHandle;
 use Net::FTPServer::DirHandle;
@@ -2265,8 +2235,8 @@ sub run
     # Construct version string.
     $self->{version_string}
     = "Net::FTPServer/" .
-      $Net::FTPServer::VERSION . "-" .
-      $Net::FTPServer::RELEASE;
+      $Net::FTPServer::VERSION.'-'.
+	  $Net::FTPServer::RELEASE;
 
     # Save the hostname.
     $self->{hostname} = hostname;
@@ -2308,7 +2278,20 @@ sub run
 
     # Global configuration.
     $self->{debug} = 0;
-    $self->{_config_file} = "/etc/ftpd.conf";
+	
+	if (-f "/etc/ftpd.conf") {
+		warn "Using deprecated /etc/ftpd.conf config file - please switch to /etc/ftpd.pl.conf or install in userspace";
+		$self->{_config_file} = "/etc/ftpd.conf";
+	} elsif (-f "/etc/ftpd.pl.conf") {
+		$self->{_config_file} = "/etc/ftpd.pl.conf";
+	} else {
+		warn "Using standard configuration of this distribution";
+		$self->{_config_file} = dist_dir('Net-FTPServer').'/ftpd.pl.conf';
+	}
+
+	use Data::Dumper;
+	print Dumper $self->{_config_file};
+	exit 0;
 
     $self->options_hook ($args);
     $self->_get_configuration ($args);
@@ -8237,14 +8220,6 @@ Support for IPv6 (see RFC 2428), EPRT, EPSV commands.
 
 See also "XXX" comments in the code for other problems, missing features
 and bugs.
-
-=head1 FILES
-
-  /etc/ftpd.conf
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/DirHandle.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/FileHandle.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/Handle.pm
 
 =head1 AUTHORS
 

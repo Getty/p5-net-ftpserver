@@ -2306,6 +2306,7 @@ sub run
     # Construct a list of supported options (for OPTS command).
     $self->{options} = {
 			MLST => \&_OPTS_MLST_command,
+			UTF8 => \&_OPTS_UTF8_command,
 		       };
 
     $self->pre_configuration_hook;
@@ -7302,6 +7303,21 @@ sub _mlst_format
     # Return the facts to the user in a string.
     return join (";", @facts) . "; " . $filename;
   }
+
+sub _OPTS_UTF8_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    if ($rest && uc($rest) ne 'ON') {
+      $self->reply (501, "We only support UTF-8");
+      return;
+    }
+
+    $self->reply (200, 'OK UTF-8 enabled');
+  }
+
 
 # Routine: xfer_start
 # Purpose: Initialize the beginning of a transfer.

@@ -6777,7 +6777,7 @@ sub _OPTS_command
 
     # RFC 2389 section 4.
     # See also RFC 2640 section 3.1.
-    unless ($rest =~ /^([A-Z]{3,4})\s?(.*)/i)
+    unless ($rest =~ /^([A-Z][A-Z0-9]{2,3}) (.*)/i)
       {
 	$self->reply (501, "Syntax error in OPTS command.");
 	return;

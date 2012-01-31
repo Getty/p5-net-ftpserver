@@ -32,6 +32,7 @@ Current features include:
  * Directory aliases and CDPATH support.
  * Extensible command set.
  * Generate archives on the fly.
+ * SSL/TLS security
 
 =head1 INSTALLING AND RUNNING THE SERVER
 
@@ -830,6 +831,30 @@ clear, syslogging is disabled.
 Default: 1
 
 Example: C<enable syslog: 0>
+
+=item enable ssl
+
+Enable ssl/tls encryption.  Requires IO::Socket::SSL to be
+installed.  Turning this on will cause AUTH TLS to be
+advertised via FEAT.
+
+This SSL mode is compatible with RFC4217 clients, where it
+is often called "Explicit FTPS".  You will need to give an
+SSL certificate and key pair.
+
+Default: 0
+
+Example: C<enable ssl: 1>
+
+=item ssl cert file
+=item ssl key file
+
+Paths to the key and certificate files for SSL.
+
+There is no default.
+
+Example: C<ssl cert file: /etc/ssl/server.crt>
+Example: C<ssl key file: /etc/ssl/server.key>
 
 =item ident timeout
 
@@ -2148,6 +2173,7 @@ eval "use Archive::Zip;";
 eval "use BSD::Resource;";
 eval "use Digest::MD5;";
 eval "use File::Sync;";
+eval "use IO::Socket::SSL";
 
 # Global variables and constants.
 use vars qw(@_default_commands
@@ -2179,6 +2205,8 @@ use vars qw(@_default_commands
      "CLNT",
      # Experimental IP-less virtual hosting.
      "HOST",
+     # RFC4217 TLS AUTH (subset of RFC 2228)
+     "AUTH", "PBSZ", "PROT", "CCC",
     );
 
 @_default_site_commands
@@ -2297,6 +2325,15 @@ sub run
     $self->_get_configuration ($args);
 
     $self->post_configuration_hook;
+
+    # include TLS features if SSL support available
+    if ($self->config("enable ssl"))
+      {
+        $self->{features}{AUTH} = 'TLS';
+        $self->{features}{PBSZ} = undef;
+        $self->{features}{PROT} = undef;
+        $self->{features}{CCC} = undef;
+      }
 
     # Initialize Max Clients Settings
     $self->{_max_clients} =
@@ -2441,6 +2478,11 @@ sub run
 	# Run as a daemon.
 	$self->_be_daemon;
       }
+    else
+      {
+        $self->{sock_in} = *STDIN;
+        $self->{sock_out} = *STDOUT;
+      }
 
     $| = 1;
 
@@ -2457,7 +2499,7 @@ sub run
       {
 	$self->log ("info", "get socket name") if $self->{debug};
 
-	$sockname = getsockname STDIN;
+	$sockname = getsockname $self->{sock_in};
 	if (!defined $sockname)
 	  {
 	    $self->reply(500, "inet mode requires a socket - use '$0 -S' for standalone.");
@@ -2468,7 +2510,7 @@ sub run
 
 	# Added 21 Feb 2001 by Rob Brown
 	# If MSG_OOB data arrives on STDIN send it inline and trigger SIGURG
-	setsockopt (STDIN, SOL_SOCKET, SO_OOBINLINE, pack ("l", 1))
+	setsockopt ($self->{sock_in}, SOL_SOCKET, SO_OOBINLINE, pack ("l", 1))
 	  or warn "setsockopt: SO_OOBINLINE: $!";
 
 	# Note by RWMJ: The following code always generates an error, so
@@ -2524,7 +2566,7 @@ sub run
     # Get the peername and other details of this socket.
     my ($peername, $peerport, $peeraddr, $peeraddrstring);
 
-    if ( $peername = getpeername STDIN )
+    if ( $peername = getpeername $self->{sock_in} )
       {
 	($peerport, $peeraddr) = unpack_sockaddr_in ($peername);
 	$peeraddrstring = inet_ntoa ($peeraddr);
@@ -2836,7 +2878,9 @@ sub run
       {
 	%no_authentication_commands =
 	  ("USER" => 1, "PASS" => 1, "LANG" => 1, "FEAT" => 1,
-	   "HELP" => 1, "QUIT" => 1, "HOST" => 1);
+	   "HELP" => 1, "QUIT" => 1, "HOST" => 1,
+	   "AUTH" => 1, "PBSZ" => 1, "PROT" => 1, "CCC" => 1,
+	  );
       }
 
     # Start reading commands from the client.
@@ -2853,7 +2897,7 @@ sub run
 	# XXX This does not comply properly with RFC 2640 section 3.1 -
 	# We should translate <CR><NUL> to <CR> and treat ONLY <CR><LF>
 	# as a line ending character.
-	last unless defined ($_ = <STDIN>);
+	last unless defined ($_ = $self->{sock_in}->getline());
 
 	$self->_check_signals;
 
@@ -3575,6 +3619,9 @@ sub _be_daemon
 
 		# Duplicate the socket so it looks like we were called
 		# from inetd.
+                $self->{sock_in} = $sock;
+                $self->{sock_out} = $sock;
+		$self->{sock} = $sock;
 		dup2 ($sock->fileno, 0);
 		dup2 ($sock->fileno, 1);
 
@@ -3941,15 +3988,15 @@ sub reply
 
     if (@_ == 1)		# Single-line response.
       {
-	print $code, " ", $_[0], "\r\n";
+	$self->{sock_out}->print($code, " ", $_[0], "\r\n");
       }
     else			# Multi-line response.
       {
 	for (my $i = 0; $i < @_-1; ++$i)
 	  {
-	    print $code, "-", $_[$i], "\r\n";
+	    $self->{sock_out}->print($code, "-", $_[$i], "\r\n");
 	  }
-	print $code, " ", $_[@_-1], "\r\n";
+	$self->{sock_out}->print($code, " ", $_[@_-1], "\r\n");
       }
 
     $self->log ("info", "reply: $code") if $self->{debug};
@@ -4367,6 +4414,156 @@ sub _HOST_command
     # Allow the change.
     $self->{sitename} = $rest;
     $self->reply (200, "HOST set to $self->{sitename}.");
+  }
+
+sub _AUTH_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    my $ucr = uc($rest);
+
+    # If the user issues this command when logged in, generate an error.
+    # We have to do this basically because of chroot and setuid stuff we
+    # can't ``relogin'' as a different user.
+    if ($self->{authenticated})
+      {
+	$self->reply (503, "You are already logged in.");
+	return;
+      }
+
+    if ($self->{user})
+      {
+	$self->reply (503, "You have already sent a USER command, too late to switch now.");
+	return;
+      }
+
+    if ($ucr ne 'TLS' and $ucr ne 'SSL')
+      {
+	$self->reply (504, "Mechanism not known here.");
+	return;
+      }
+
+    if (not $self->config("enable ssl"))
+      {
+	$self->reply (534, "SSL is not enabled on this server.");
+	return;
+      }
+
+    if (not $self->{sock})
+      {
+        $self->reply(534, "SSL is not available if started from inetd.");
+	return;
+      }
+
+    if (not exists $INC{"IO/Socket/SSL.pm"})
+      {
+	$self->reply (431, "IO::Socket::SSL is not installed, unable to encrypt.");
+	return;
+      }
+
+    # Accept the TLS session.
+    $self->reply (234, "AUTH=$ucr");
+    my $cert = $self->config("ssl cert file") || $self->config("ssl certificate file");
+    my $key = $self->config("ssl key file");
+    if (IO::Socket::SSL->start_SSL($self->{sock},
+				   SSL_server => 1,
+				   #SSL_version => ($ucr eq 'TLS' ? 'TLSv1' : 'SSLv3'),
+				   SSL_cert_file => $cert,
+				   SSL_key_file => $key,
+				  ))
+      {
+	$self->{tls_control} = 1;
+	$self->{tls_type} = $ucr;
+      }
+    else
+      {
+	# failed, what can we do?
+	die "Failed to start TLS " . IO::Socket::SSL::errstr();
+      }
+  }
+
+sub _PBSZ_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    if (!$self->{tls_control})
+      {
+	$self->reply (503, "Control connection is not protected");
+	return;
+      }
+
+    if ($rest != 0)
+      {
+	$self->reply (501, "Size must be 0 for TLS");
+	return;
+      }
+
+    $self->{pbsz_provided} = 1;
+    $self->reply (200, "PBSZ=0");
+  }
+
+sub _PROT_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    my $ucr = uc($rest);
+
+    if (!$self->{tls_control})
+      {
+	$self->reply (503, "Control connection is not protected");
+	return;
+      }
+
+    if (!$self->{pbsz_provided})
+      {
+	$self->reply (503, "Pointless block size command has not been issued");
+	return;
+      }
+
+    if ($ucr ne 'C' and $ucr ne 'P')
+      {
+	$self->reply (536, "TLS only supports P and C");
+	return;
+      }
+
+    $self->{tls_data} = ($ucr eq 'P');
+    $self->reply (200, "PROT=$ucr");
+  }
+
+sub _CCC_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    if (not $self->{tls_control})
+      {
+	$self->reply(503, "Control connection is not protected");
+	return;
+      }
+
+    if (not $self->{sock})
+      {
+        $self->reply(534, "SSL is not available if started from inetd.");
+	return;
+      }
+
+    if ($self->{sock}->can('stop_SSL'))
+      {
+	$self->reply (200, "CCC");
+	$self->{sock}->stop_SSL();
+	$self->{tls_control} = 0;
+      }
+    else
+      {
+	$self->reply(534, "Unable to shut down TLS on this connection");
+      }
   }
 
 sub _USER_command
@@ -6536,21 +6733,21 @@ sub _FEAT_command
     # wu-ftpd by putting the server code in each line).
     #
     # See RFC 2389 section 3.2.
-    print "211-Extensions supported:\r\n";
+    $self->{sock_out}->print("211-Extensions supported:\r\n");
 
     foreach (sort keys %{$self->{features}})
       {
 	unless ($self->{features}{$_})
 	  {
-	    print " $_\r\n";
+	    $self->{sock_out}->print(" $_\r\n");
 	  }
 	else
 	  {
-	    print " $_ ", $self->{features}{$_}, "\r\n";
+	    $self->{sock_out}->print(" $_ ", $self->{features}{$_}, "\r\n");
 	  }
       }
 
-    print "211 END\r\n";
+    $self->{sock_out}->print("211 END\r\n");
   }
 
 sub _OPTS_command
@@ -6754,9 +6951,9 @@ sub _MLST_command
     my $info = $self->_mlst_format ($filename, $fileh, $dirh);
 
     # Can't use $self->reply since it produces the wrong format.
-    print "250-Listing of $filename:\r\n";
-    print " ", $info, "\r\n";
-    print "250 End of listing.\r\n";
+    $self->{sock_out}->print("250-Listing of $filename:\r\n");
+    $self->{sock_out}->print(" ", $info, "\r\n");
+    $self->{sock_out}->print("250 End of listing.\r\n");
   }
 
 sub _MLSD_command
@@ -7443,6 +7640,27 @@ sub open_data_connection
 	  or warn "setsockopt: SO_SNDBUF: $!";
 	$sock->sockopt (SO_RCVBUF, $self->config ("tcp window"))
 	  or warn "setsockopt: SO_RCVBUF: $!";
+      }
+
+    # Data connections are PROTected, enable SSL
+    if ($self->{tls_data})
+      {
+        my $cert = $self->config("ssl cert file") || $self->config("ssl certificate file");
+        my $key = $self->config("ssl key file");
+        if (IO::Socket::SSL->start_SSL($sock,
+                                       SSL_server => 1,
+                                       #SSL_version => ($self->{tls_type} eq 'TLS' ? 'TLSv1' : 'SSLv3'),
+                                       SSL_cert_file => $cert,
+                                       SSL_key_file => $key,
+                                      ))
+          {
+            # yay, all good
+          }
+        else
+          {
+            # failed, what can we do?
+	    die "Failed to start TLS " . IO::Socket::SSL::errstr();
+          }
       }
 
     return $sock;
@@ -8264,10 +8482,12 @@ L<perl(1)>,
 RFC 765,
 RFC 959,
 RFC 1579,
+RFC 2228,
 RFC 2389,
 RFC 2428,
 RFC 2577,
 RFC 2640,
+RFC 4217,
 Extensions to FTP Internet Draft draft-ietf-ftpext-mlst-NN.txt.
 
 =cut

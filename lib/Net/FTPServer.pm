@@ -2179,7 +2179,8 @@ eval "use IO::Socket::SSL";
 use vars qw(@_default_commands
 	    @_default_site_commands
 	    @_supported_mlst_facts
-	    $_default_timeout);
+	    $_default_timeout
+	    $_epsv_all);
 
 @_default_commands
   = (
@@ -2209,6 +2210,8 @@ use vars qw(@_default_commands
      "HOST",
      # RFC4217 TLS AUTH (subset of RFC 2228)
      "AUTH", "PBSZ", "PROT", "CCC",
+     # RFC 2428 (ipv6 support)
+     "EPRT", "EPSV",
     );
 
 @_default_site_commands
@@ -2230,6 +2233,7 @@ use vars qw(@_default_commands
     );
 
 $_default_timeout = 900;
+$_epsv_all = 0;
 
 # Allocate and initialize signal flags
 use vars qw($GOT_SIGURG $GOT_SIGCHLD $GOT_SIGHUP $GOT_SIGTERM);
@@ -5171,11 +5175,66 @@ sub _QUIT_command
     die;
   }
 
+sub _EPRT_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+    my $d = substr($rest, 0, 1);
+
+    my (undef, $proto, $hostaddrstring, $hostport, undef) = split /[$d]/, $rest;
+
+    if ($proto == 1)
+      {
+	# ipv4 - XXX sanity checking?
+      }
+    else if ($proto == 2)
+      {
+	# ipv6
+      }
+    else
+      {
+	$self->reply (522, "Network protocol not supported, use (1,2)");
+	return;
+      }
+
+    # Are we connecting back to the client?
+    unless ($self->config ("allow proxy ftp"))
+      {
+	if (!$self->{_test_mode} && $hostaddrstring ne $self->{peeraddrstring})
+	  {
+	    # See RFC 2577 section 3.
+	    $self->reply (504, "Proxy FTP is not allowed on this server.");
+	    return;
+	  }
+      }
+
+    # Check port number.
+    unless ($hostport > 0 && $hostport < 65536)
+      {
+	$self->reply (501, "Invalid port number.");
+      }
+
+    $self->{_hostaddrstring} = $hostaddrstring;
+    $self->{_hostaddr} = inet_aton ($hostaddrstring);
+    $self->{_hostport} = $hostport;
+    $self->{_passive} = 0;
+
+    $self->reply (200, "EPRT command OK.");
+  }
+
 sub _PORT_command
   {
     my $self = shift;
     my $cmd = shift;
     my $rest = shift;
+
+    if ($_epsv_all)
+      {
+	$self->reply (501, "PORT not allowed in EPSV ALL mode");
+	return;
+      }
 
     # The arguments to PORT are a1,a2,a3,a4,p1,p2 where a1 is the
     # most significant part of the address (eg. 127,0,0,1) and
@@ -5250,11 +5309,26 @@ sub _PORT_command
     $self->reply (200, "PORT command OK.");
   }
 
+sub _EPSV_command
+  {
+    my $self = shift;
+    my $cmd = shift;
+    my $rest = shift;
+
+
+  }
+
 sub _PASV_command
   {
     my $self = shift;
     my $cmd = shift;
     my $rest = shift;
+
+    if ($_epsv_all)
+      {
+	$self->reply (501, "PASV not allowed in EPSV ALL mode");
+	return;
+      }
 
     # Open a listening socket - but don't actually accept on it yet.
     # RFC 2577 section 8 suggests using random local port numbers.
@@ -8591,8 +8665,6 @@ Log formatting similar to ProFTPD command LogFormat.
 More timeouts to avoid various denial of service attacks. For example,
 the server should always timeout when waiting too long for an
 active data connection.
-
-Support for IPv6 (see RFC 2428), EPRT, EPSV commands.
 
 See also "XXX" comments in the code for other problems, missing features
 and bugs.

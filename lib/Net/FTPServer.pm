@@ -36,7 +36,7 @@ Current features include:
 
 =head1 INSTALLING AND RUNNING THE SERVER
 
-A standard C<ftpd.pl.conf> file is supplied with the distribution.
+A standard C<ftpd.conf> file is supplied with the distribution.
 Full documentation for all the possible options which you
 may use in this file is contained in this manual page. See
 the section CONFIGURATION below.
@@ -139,7 +139,7 @@ Restart C<xinetd> using:
 C<Net::FTPServer> can be configured and extended in a number
 of different ways.
 
-B<TODO - Using and getting ftpd.pl.conf>
+B<TODO - Using and getting ftpd.conf>
 
 Secondly, commands can be loaded into the server at run-time
 to provide custom extensions to the common FTP command set.
@@ -157,7 +157,7 @@ The next sections talk about each of these possibilities in turn.
 
 =head2 CONFIGURATION
 
-A standard C<ftpd.pl.conf> file is supplied with C<Net::FTPServer>
+A standard C<ftpd.conf> file is supplied with C<Net::FTPServer>
 in the distribution. The possible configuration options are listed in
 full below.
 
@@ -1636,7 +1636,7 @@ may choose a different path if you want). The file should contain:
 		  "End of the README file.");
   }
 
-Edit C<ftpd.pl.conf> and add the following command:
+Edit C<ftpd.conf> and add the following command:
 
 site command: readme /usr/local/lib/site_readme.pl
 
@@ -1853,7 +1853,7 @@ Check that no ERRORs are reported by PostgreSQL.
 You should now be able to start the FTP server by running
 the following command (I<not> as root):
 
-  ./dbeg1-ftpd -S -p 2000 -C ftpd.pl.conf
+  ./dbeg1-ftpd -S -p 2000 -C ftpd.conf
 
 If the FTP server doesnE<39>t start correctly, you should
 check the system log file [/var/log/messages].
@@ -1923,7 +1923,7 @@ Normal (IP-based) virtual hosting is carried out as follows:
    IP address back to the site hostname. It is important
    that both forward and reverse DNS is set up correctly,
    else virtual hosting may not work.
- * In ftpd.pl.conf you will need to add a virtual host
+ * In ftpd.conf you will need to add a virtual host
    section for each site like this:
 
      <Host sitename>
@@ -1940,7 +1940,7 @@ Normal (IP-based) virtual hosting is carried out as follows:
    database or a script, you may find the <Include filename>
    syntax useful.
 
-There are examples in C<ftpd.pl.conf>. Here is how
+There are examples in C<ftpd.conf>. Here is how
 IP-based virtual hosting works:
 
  * The server starts by listening on all interfaces.
@@ -1976,12 +1976,12 @@ This is how to set up IP-less virtual hosting:
 
  * Add entries (A or CNAME records) in DNS mapping the
    name of each site to a single IP address.
- * In ftpd.pl.conf you will need to list the same single
+ * In ftpd.conf you will need to list the same single
    IP address to which all your sites map:
 
      virtual host multiplex: 1.2.3.4
 
- * In ftpd.pl.conf you will need to add a virtual host
+ * In ftpd.conf you will need to add a virtual host
    section for each site like this:
 
      <Host sitename>
@@ -2312,20 +2312,7 @@ sub run
 
     # Global configuration.
     $self->{debug} = 0;
-	
-	if (-f "/etc/ftpd.conf") {
-		warn "Using deprecated /etc/ftpd.conf config file - please switch to /etc/ftpd.pl.conf or install in userspace";
-		$self->{_config_file} = "/etc/ftpd.conf";
-	} elsif (-f "/etc/ftpd.pl.conf") {
-		$self->{_config_file} = "/etc/ftpd.pl.conf";
-	} else {
-		warn "Using standard configuration of this distribution";
-		$self->{_config_file} = dist_dir('Net-FTPServer').'/ftpd.pl.conf';
-	}
-
-	use Data::Dumper;
-	print Dumper $self->{_config_file};
-	exit 0;
+    $self->{_config_file} = "/etc/ftpd.conf";
 
     $self->options_hook ($args);
     $self->_get_configuration ($args);

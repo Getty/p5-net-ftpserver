@@ -27,13 +27,13 @@ package Net::FTPServer::InMem::Server;
 use strict;
 use warnings;
 
-our $VERSION ||= '2.000dev';
-
 use Net::FTPServer;
 use Net::FTPServer::InMem::FileHandle;
 use Net::FTPServer::InMem::DirHandle;
 
-use vars qw(@ISA);
+use vars qw($VERSION @ISA);
+( $VERSION ) = $Net::FTPServer::VERSION || "2.000dev";
+
 @ISA = qw(Net::FTPServer);
 
 # Variables.

@@ -54,8 +54,6 @@ package Net::FTPServer::Proxy::Server;
 use strict;
 use warnings;
 
-our $VERSION ||= '2.000dev';
-
 use Net::FTP;
 use Net::FTPServer;
 use Net::FTPServer::Proxy::FileHandle;

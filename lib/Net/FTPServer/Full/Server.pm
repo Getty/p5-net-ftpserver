@@ -25,13 +25,11 @@ package Net::FTPServer::Full::Server;
 use strict;
 use warnings;
 
-our $VERSION ||= '2.000dev';
-
 # Authen::PAM is an optional module.
 BEGIN { eval "use Authen::PAM;"; }
 
 use vars qw($VERSION);
-( $VERSION ) = '$Revision: 1.1 $ ' =~ /\$Revision:\s+([^\s]+)/;
+( $VERSION ) = $Net::FTPServer::VERSION || "2.000dev";
 
 use Net::FTPServer;
 use Net::FTPServer::Full::FileHandle;
@@ -296,21 +294,6 @@ __END__
 
 =back 4
 
-=head1 FILES
-
-  /etc/ftpd.conf
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/DirHandle.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/FileHandle.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/Handle.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/Full/Server.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/Full/DirHandle.pm
-  /usr/lib/perl5/site_perl/5.005/Net/FTPServer/Full/FileHandle.pm
-
-=head1 AUTHORS
-
-Richard Jones (rich@annexia.org).
-
 =head1 COPYRIGHT
 
 Copyright (C) 2000 Biblio@Tech Ltd., Unit 2-3, 50 Carnwath Road,
@@ -330,5 +313,20 @@ RFC 2428,
 RFC 2577,
 RFC 2640,
 Extensions to FTP Internet Draft draft-ietf-ftpext-mlst-NN.txt.
+
+=head1 SUPPORT
+
+IRC
+
+  Join #perl-help on irc.perl.org. Highlight Getty for fast reaction :).
+
+Repository
+
+  https://github.com/Getty/p5-net-ftpserver
+  Pull request and additional contributors are welcome
+ 
+Issue Tracker
+
+  https://github.com/Getty/p5-net-ftpserver/issues
 
 =cut

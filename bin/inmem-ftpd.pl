@@ -1,4 +1,5 @@
 #!/bin/sh
+# PODNAME: In Memory FTPd
 # -*- perl -*-
 exec perl -x -wT $0 "$@";
 exit 1;

@@ -21,8 +21,6 @@ package Net::FTPServer::Proxy::FileHandle;
 use strict;
 use warnings;
 
-our $VERSION ||= '2.000dev';
-
 use Carp qw(croak confess);
 use IO::Scalar;
 use File::Temp qw/tempfile/;

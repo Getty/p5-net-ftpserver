@@ -21,8 +21,6 @@ package Net::FTPServer::FileHandle;
 use strict;
 use warnings;
 
-our $VERSION ||= '2.000dev';
-
 use Net::FTPServer::Handle;
 
 use Carp qw(confess);
@@ -123,10 +121,6 @@ __END__
 
 =back 4
 
-=head1 AUTHORS
-
-Richard Jones (rich@annexia.org).
-
 =head1 COPYRIGHT
 
 Copyright (C) 2000 Biblio@Tech Ltd., Unit 2-3, 50 Carnwath Road,
@@ -135,5 +129,20 @@ London, SW6 3EG, UK
 =head1 SEE ALSO
 
 L<Net::FTPServer(3)>, L<perl(1)>
+
+=head1 SUPPORT
+
+IRC
+
+  Join #perl-help on irc.perl.org. Highlight Getty for fast reaction :).
+
+Repository
+
+  https://github.com/Getty/p5-net-ftpserver
+  Pull request and additional contributors are welcome
+ 
+Issue Tracker
+
+  https://github.com/Getty/p5-net-ftpserver/issues
 
 =cut

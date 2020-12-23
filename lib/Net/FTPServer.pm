@@ -2129,7 +2129,9 @@ package Net::FTPServer;
 use strict;
 use warnings;
 
-our $VERSION ||= '2.000dev';
+use vars qw($VERSION);
+( $VERSION ) = $Net::FTPServer::VERSION || "2.000dev";
+
 our $RELEASE = 0;
 
 # Non-optional modules.
@@ -7010,19 +7012,20 @@ sub _MLST_command
 	return;
       }
 
-    if ($mtime != -1)
-      {
-        if ($fileh->utime($mtime) == -1)
-          {
-            $self->reply(451, "Could not set modified time");
-            return;
-          }
-      }
-    elsif ($require_time)
-      {
-        $self->reply(501, "Need a valid modification time");
-        return;
-      }
+    # TODO..............
+    # if ($mtime != -1)
+    #   {
+    #     if ($fileh->utime($mtime) == -1)
+    #       {
+    #         $self->reply(451, "Could not set modified time");
+    #         return;
+    #       }
+    #   }
+    # elsif ($require_time)
+    #   {
+    #     $self->reply(501, "Need a valid modification time");
+    #     return;
+    #   }
 
     # Get the status.
     my ($mode, $perms, $nlink, $user, $group, $size, $time)
@@ -8644,5 +8647,20 @@ RFC 2577,
 RFC 2640,
 RFC 4217,
 Extensions to FTP Internet Draft draft-ietf-ftpext-mlst-NN.txt.
+
+=head1 SUPPORT
+
+IRC
+
+  Join #perl-help on irc.perl.org. Highlight Getty for fast reaction :).
+
+Repository
+
+  https://github.com/Getty/p5-net-ftpserver
+  Pull request and additional contributors are welcome
+ 
+Issue Tracker
+
+  https://github.com/Getty/p5-net-ftpserver/issues
 
 =cut

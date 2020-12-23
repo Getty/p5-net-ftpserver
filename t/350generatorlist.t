@@ -87,14 +87,14 @@ print OUTFD0 "MKD sub3\r\n";
 $_ = <INFD1>;
 ok (/^250/);
 
-ok (upload_file ("Makefile.PL"));
-ok (upload_file ("README"));
+ok (upload_file ("dist.ini"));
+ok (upload_file ("Changes"));
 
 print OUTFD0 "CWD sub3\r\n";
 $_ = <INFD1>;
 ok (/^250/);
 
-ok (upload_file ("INSTALL"));
+ok (upload_file ("cpanfile"));
 
 print OUTFD0 "CWD /\r\n";
 $_ = <INFD1>;
@@ -119,12 +119,12 @@ my @results = split /\r?\n/, $buffer;
 @results = sort @results;
 
 ok ($results[0] eq "/dir/");
-ok ($results[1] eq "/dir/Makefile.PL");
-ok ($results[2] eq "/dir/README");
+ok ($results[1] eq "/dir/dist.ini");
+ok ($results[2] eq "/dir/Changes");
 ok ($results[3] eq "/dir/sub1/");
 ok ($results[4] eq "/dir/sub2/");
 ok ($results[5] eq "/dir/sub3/");
-ok ($results[6] eq "/dir/sub3/INSTALL");
+ok ($results[6] eq "/dir/sub3/cpanfile");
 
 unlink $tmpfile;
 

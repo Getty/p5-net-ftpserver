@@ -1,12 +1,18 @@
-$Id: TODO,v 1.1 2003/09/28 11:50:44 rwmj Exp $
+# Old Author TODOs
 
-Benchmarking. Run http://www.kegel.com/dkftpbench/index.html against
-the server and optimize it according to the results. I don't expect
-it to perform particularly well, but there are probably some obvious
-areas for improvement.
+## Benchmarking
+
+Run http://www.kegel.com/dkftpbench/index.html against the server and
+optimize it according to the results. I don't expect it to perform
+particularly well, but there are probably some obvious areas for
+improvement.
+
+## Hooks
 
 Implement upload/download hooks and a default system similar to
 what glftpd can do.
+
+## Problems
 
 Current problems with this FTP server, as identified by http://cr.yp.to/ftp/:
 
@@ -28,36 +34,38 @@ Current problems with this FTP server, as identified by http://cr.yp.to/ftp/:
  * Implement correct quoting in PWD command response
    [http://cr.yp.to/ftp/cwd.html#pwd].
 
-Implement EPRT and EPSV (see RFC 2428).
+## Implement EPRT and EPSV (see RFC 2428).
+
+## Auto-compress
 
 Auto-compress files and directories on upload and download. Provide
 a hook to allow the range of compression functions to be increased.
 [Some of this is implemented].
 
-Regression tests for the following fixed bugs:
+## Regression tests for the following fixed bugs:
 
-* SIZE on non-readable files.
-* Zero-nodes.
-* SIZE /, MKD /, SIZE . and related funny things.
-* MLST /
-* NLST -al
+ * SIZE on non-readable files.
+ * Zero-nodes.
+ * SIZE /, MKD /, SIZE . and related funny things.
+ * MLST /
+ * NLST -al
 
-Tests for the following features:
+## Tests for the following features:
 
-* SIGHUP - reload configuration & reopen files.
-* Illegal constructs in config file.
-* max clients.
-* Access control rules.
-* Ident (!)
-* Timezones.
-* max login attempts.
-* chdir message file.
-* alias.
-* cdpath.
-* allow site version command.
-* allow site exec command.
-* site command.
-* virtual hosts (HOST command).
-* command filter.
-* no authentication commands.
-* SITE CHECKSUM.
+ * SIGHUP - reload configuration & reopen files.
+ * Illegal constructs in config file.
+ * max clients.
+ * Access control rules.
+ * Ident (!)
+ * Timezones.
+ * max login attempts.
+ * chdir message file.
+ * alias.
+ * cdpath.
+ * allow site version command.
+ * allow site exec command.
+ * site command.
+ * virtual hosts (HOST command).
+ * command filter.
+ * no authentication commands.
+ * SITE CHECKSUM.

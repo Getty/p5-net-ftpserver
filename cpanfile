@@ -1,0 +1,18 @@
+requires 'IO', '1.25';
+requires 'BSD::Resource';
+requires 'Carp';
+requires 'DynaLoader';
+requires 'Fcntl';
+requires 'Getopt::Long';
+requires 'POSIX';
+requires 'Socket';
+requires 'Sys::Hostname';
+requires 'Sys::Syslog';
+requires 'Archive::Zip', '0.11';
+requires 'Compress::Zlib', '1.14';
+requires 'Net::FTP';
+requires 'Digest::MD5';
+requires 'File::Sync';
+requires 'File::Temp';
+requires 'File::ShareDir::ProjectDistDir', '0.1.1';
+requires 'IO::Socket::SSL', '1.09';

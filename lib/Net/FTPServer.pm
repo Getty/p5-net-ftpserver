@@ -1581,7 +1581,7 @@ file:
            $Net::FTPServer::VERSION >= 1.025;
   </Perl>
 
-=back 4
+=back
 
 =head2 LOADING CUSTOMIZED SITE COMMANDS
 
@@ -8552,7 +8552,7 @@ sub endRead
 
 __END__
 
-=back 4
+=back
 
 
 =head1 BUGS

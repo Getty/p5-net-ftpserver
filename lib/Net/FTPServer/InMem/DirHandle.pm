@@ -380,7 +380,7 @@ sub open
 
 __END__
 
-=back 4
+=back
 
 =head1 AUTHORS
 

@@ -131,7 +131,7 @@ sub root_directory_hook
 
 __END__
 
-=back 4
+=back
 
 =head1 FILES
 
